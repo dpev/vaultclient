@@ -43,7 +43,7 @@ epilogue:
   return result;
 }
 
-udResult vcMesh_Create(vcMesh **ppMesh, const vcVertexLayoutTypes *pMeshLayout, int totalTypes, const void* pVerts, uint32_t currentVerts, const void *pIndices, uint32_t currentIndices, vcMeshFlags flags/* = vcMF_None*/)
+udResult vcMesh_Create(vcMesh **ppMesh, const vcVertexLayoutTypes *pMeshLayout, int totalTypes, const void* pVerts, uint32_t currentVerts, const void *pIndices, uint32_t currentIndices, vcMeshFlags flags /* = vcMF_None*/)
 {
   bool invalidIndexSetup = ((flags & vcMF_NoIndexBuffer) == 0) && ((pIndices == nullptr && currentIndices > 0) || currentIndices == 0);
   if (ppMesh == nullptr || pMeshLayout == nullptr || totalTypes == 0 || currentVerts == 0 || invalidIndexSetup)
@@ -108,6 +108,9 @@ void vcMesh_Destroy(vcMesh **ppMesh)
   if (pMesh->pIBO)
     pMesh->pIBO->Release();
 
+  if (pMesh->pInstanceBufferObject)
+    pMesh->pInstanceBufferObject->Release();
+
   udFree(pMesh);
 }
 
@@ -158,7 +161,6 @@ epilogue:
 
 udResult vcMesh_UploadSubData(vcMesh *pMesh, const vcVertexLayoutTypes *pLayout, int totalTypes, int startVertex, const void* pVerts, int totalVerts, const void *pIndices, int totalIndices)
 {
-
   if (pMesh == nullptr || pLayout == nullptr || totalTypes == 0 || pVerts == nullptr || totalVerts == 0 || pMesh->drawType != D3D11_USAGE_DYNAMIC)
     return udR_InvalidParameter_;
 
@@ -230,5 +232,53 @@ bool vcMesh_Render(vcMesh *pMesh, uint32_t elementCount /* = 0*/, uint32_t start
     g_pd3dDeviceContext->DrawIndexed(elementCount * elementsPerPrimitive, startElement * elementsPerPrimitive, 0);
 
   vcGLState_ReportGPUWork(1, elementCount * elementsPerPrimitive, 0);
+  return true;
+}
+
+
+bool vcMesh_RenderInstanced(vcMesh *pMesh, uint32_t instanceCount, uint32_t elementCount /*= 0*/, uint32_t startElement /*= 0*/, vcMeshRenderMode renderMode /*= vcMRM_Triangles*/)
+{
+  if (pMesh == nullptr || (pMesh->indexBytes > 0 && pMesh->indexCount < (elementCount + startElement) * 3) || (elementCount == 0 && startElement != 0))
+    return false;
+
+  if (elementCount == 0)
+    elementCount = (pMesh->indexCount ? pMesh->indexCount : pMesh->vertexCount) / 3;
+
+  unsigned int stride = pMesh->vertexSize;
+  unsigned int offset = 0;
+  g_pd3dDeviceContext->IASetVertexBuffers(0, 1, &pMesh->pVBO, &stride, &offset);
+
+  if (pMesh->indexBytes == 4)
+    g_pd3dDeviceContext->IASetIndexBuffer(pMesh->pIBO, DXGI_FORMAT_R32_UINT, 0);
+  else if (pMesh->indexBytes == 2)
+    g_pd3dDeviceContext->IASetIndexBuffer(pMesh->pIBO, DXGI_FORMAT_R16_UINT, 0);
+
+  D3D11_PRIMITIVE_TOPOLOGY d3dRenderMode = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+  int elementsPerPrimitive = 3;
+  switch (renderMode)
+  {
+  case vcMRM_TriangleStrip:
+    d3dRenderMode = D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP;
+    elementsPerPrimitive = 1;
+    break;
+  case vcMRM_Points:
+    d3dRenderMode = D3D_PRIMITIVE_TOPOLOGY_POINTLIST;
+    elementsPerPrimitive = 1;
+    break;
+  case vcMRM_Triangles: // fall through
+  default:
+    d3dRenderMode = D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST;
+    elementsPerPrimitive = 3;
+    break;
+  }
+
+  g_pd3dDeviceContext->IASetPrimitiveTopology(d3dRenderMode);
+
+  if (pMesh->indexCount == 0)
+    g_pd3dDeviceContext->DrawInstanced(elementCount * elementsPerPrimitive, instanceCount, startElement * elementsPerPrimitive, 0);
+  else
+    g_pd3dDeviceContext->DrawIndexedInstanced(elementCount * elementsPerPrimitive, instanceCount, startElement * elementsPerPrimitive, 0, 0);
+
+  vcGLState_ReportGPUWork(1, instanceCount * elementCount * elementsPerPrimitive, 0);
   return true;
 }

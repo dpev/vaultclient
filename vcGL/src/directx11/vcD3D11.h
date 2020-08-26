@@ -82,8 +82,13 @@ struct vcMesh
   ID3D11Buffer *pVBO;
   ID3D11Buffer *pIBO;
 
-  ID3D11InputLayout *pInputLayout;
-  ID3D11Buffer *pVertexConstantBuffer;
+  // instancing
+  uint32_t instanceCount;
+  uint32_t instanceDataSize;
+  ID3D11Buffer *pInstanceBufferObject;
+
+  //ID3D11InputLayout *pInputLayout;
+  //ID3D11Buffer *pVertexConstantBuffer;
 
   uint32_t vertexCount;
   uint32_t maxVertexCount;

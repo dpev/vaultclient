@@ -22,6 +22,8 @@ uint32_t vcLayout_GetSize(const vcVertexLayoutTypes layoutType)
     return 16;
   case vcVLT_Color1:
     return 16;
+  //case vcVLT_InstanceId:
+  //  return 4;
   case vcVLT_Unsupported:
     return 0;
   case vcVLT_TotalTypes: // fall through

@@ -295,6 +295,40 @@ vcFramebuffer *vcRender_GetSceneFramebuffer(vcRenderContext *pRenderContext)
   return pRenderContext->pFinalFramebuffer;
 }
 
+static const float cubeVerticesFltArray[][8] = {
+{ -1.000000f, -1.000000f, -1.000000f, -1.0000f, 0.0000f, 0.0000f, 0.375000f, 0.000000f },
+{ -1.000000f, -1.000000f, 1.000000f, -1.0000f, 0.0000f, 0.0000f, 0.625000f, 0.000000f },
+{ -1.000000f, 1.000000f, 1.000000f, -1.0000f, 0.0000f, 0.0000f, 0.625000f, 0.250000f },
+{ -1.000000f, 1.000000f, -1.000000f, -1.0000f, 0.0000f, 0.0000f, 0.375000f, 0.250000f },
+{ -1.000000f, 1.000000f, -1.000000f, 0.0000f, 1.0000f, 0.0000f, 0.375000f, 0.250000f },
+{ -1.000000f, 1.000000f, 1.000000f, 0.0000f, 1.0000f, 0.0000f, 0.625000f, 0.250000f },
+{ 1.000000f, 1.000000f, 1.000000f, 0.0000f, 1.0000f, 0.0000f, 0.625000f, 0.500000f },
+{ 1.000000f, 1.000000f, -1.000000f, 0.0000f, 1.0000f, 0.0000f, 0.375000f, 0.500000f },
+{ 1.000000f, 1.000000f, -1.000000f, 1.0000f, 0.0000f, 0.0000f, 0.375000f, 0.500000f },
+{ 1.000000f, 1.000000f, 1.000000f, 1.0000f, 0.0000f, 0.0000f, 0.625000f, 0.500000f },
+{ 1.000000f, -1.000000f, 1.000000f, 1.0000f, 0.0000f, 0.0000f, 0.625000f, 0.750000f },
+{ 1.000000f, -1.000000f, -1.000000f, 1.0000f, 0.0000f, 0.0000f, 0.375000f, 0.750000f },
+{ 1.000000f, -1.000000f, -1.000000f, 0.0000f, -1.0000f, 0.0000f, 0.375000f, 0.750000f },
+{ 1.000000f, -1.000000f, 1.000000f, 0.0000f, -1.0000f, 0.0000f, 0.625000f, 0.750000f },
+{ -1.000000f, -1.000000f, 1.000000f, 0.0000f, -1.0000f, 0.0000f, 0.625000f, 1.000000f },
+{ -1.000000f, -1.000000f, -1.000000f, 0.0000f, -1.0000f, 0.0000f, 0.375000f, 1.000000f },
+{ -1.000000f, 1.000000f, -1.000000f, 0.0000f, 0.0000f, -1.0000f, 0.125000f, 0.500000f },
+{ 1.000000f, 1.000000f, -1.000000f, 0.0000f, 0.0000f, -1.0000f, 0.375000f, 0.500000f },
+{ 1.000000f, -1.000000f, -1.000000f, 0.0000f, 0.0000f, -1.0000f, 0.375000f, 0.750000f },
+{ -1.000000f, -1.000000f, -1.000000f, 0.0000f, 0.0000f, -1.0000f, 0.125000f, 0.750000f },
+{ 1.000000f, 1.000000f, 1.000000f, 0.0000f, 0.0000f, 1.0000f, 0.625000f, 0.500000f },
+{ -1.000000f, 1.000000f, 1.000000f, 0.0000f, 0.0000f, 1.0000f, 0.875000f, 0.500000f },
+{ -1.000000f, -1.000000f, 1.000000f, 0.0000f, 0.0000f, 1.0000f, 0.875000f, 0.750000f },
+{ 1.000000f, -1.000000f, 1.000000f, 0.0000f, 0.0000f, 1.0000f, 0.625000f, 0.750000f }
+};
+
+static const uint32_t cubeIndices[] = {
+  0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4, 8, 9, 10, 10, 11, 8, 12, 13, 14,
+  14, 15, 12, 16, 17, 18, 18, 19, 16, 20, 21, 22, 22, 23, 20
+};
+
+vcPolygonModel *pTestInstanceModel = nullptr;
+
 udResult vcRender_Init(vcState *pProgramState, vcRenderContext **ppRenderContext, udWorkerPool *pWorkerPool, const udUInt2 &sceneResolution)
 {
   udResult result;
@@ -325,6 +359,8 @@ udResult vcRender_Init(vcState *pProgramState, vcRenderContext **ppRenderContext
 
   UD_ERROR_CHECK(vcRender_LoadShaders(pRenderContext, pProgramState->pWorkerPool));
   UD_ERROR_CHECK(vcRender_ResizeScene(pProgramState, pRenderContext, sceneResolution.x, sceneResolution.y));
+
+  UD_ERROR_CHECK(vcPolygonModel_CreateFromRawVertexData(&pTestInstanceModel, (void *)cubeVerticesFltArray, (uint32_t)udLengthOf(cubeVerticesFltArray), vcP3N3UV2VertexLayout, (int)(udLengthOf(vcP3N3UV2VertexLayout)), cubeIndices, (uint32_t)udLengthOf(cubeIndices), true));
 
   *ppRenderContext = pRenderContext;
   pRenderContext = nullptr;
@@ -1115,26 +1151,26 @@ void vcRender_RenderAndApplyViewSheds(vcState *pProgramState, vcRenderContext *p
     vcGLState_SetBlendMode(vcGLSBM_None);
     vcGLState_SetFaceMode(vcGLSFM_Solid, vcGLSCM_None);
     vcGLState_SetDepthStencilMode(vcGLSDM_LessOrEqual, true);
-    
+
     vcGLState_SetViewport(0, 0, ViewShedMapRes.x, ViewShedMapRes.y);
     vcFramebuffer_Bind(pRenderContext->viewShedRenderingContext.pFramebuffer, vcFramebufferClearOperation_All);
 
     if (doUDRender)
       vcRender_ConditionalSplatUD(pProgramState, pRenderContext, pRenderContext->viewShedRenderingContext.pDummyColour, pRenderContext->viewShedRenderingContext.pUDDepthTexture, renderData);
-    
+
     if (doPolygonRender)
     {
       for (int r = 0; r < ViewShedMapCount; ++r)
       {
         udDouble4x4 viewProjection = shadowRenderCameras[r].matrices.projection * shadowRenderCameras[r].matrices.view;
         vcGLState_SetViewport(r * singleRenderSize.x, 0, singleRenderSize.x, ViewShedMapRes.y);
-    
+
         for (size_t p = 0; p < renderData.polyModels.length; ++p)
         {
           vcRenderPolyInstance *pInstance = &renderData.polyModels[p];
           if (pInstance->HasFlag(vcRenderPolyInstance::RenderFlags_Transparent))
             continue;
-    
+
           if (pInstance->renderType == vcRenderPolyInstance::RenderType_Polygon)
             vcPolygonModel_Render(pInstance->pModel, 0.0f, pInstance->worldMat, viewProjection, vcPMP_Shadows);
           else if (pInstance->renderType == vcRenderPolyInstance::RenderType_SceneLayer)
@@ -1142,12 +1178,12 @@ void vcRender_RenderAndApplyViewSheds(vcState *pProgramState, vcRenderContext *p
         }
       }
     }
-    
+
     pRenderContext->shadowShader.params.inverseProjection = udFloat4x4::create(udInverse(pProgramState->pActiveViewport->camera.matrices.projection));
     pRenderContext->shadowShader.params.viewDistance = udFloat4::create(pViewShedData->viewDistance, 0.0f, 0.0f, 0.0f);
     pRenderContext->shadowShader.params.visibleColour = pViewShedData->visibleColour;
     pRenderContext->shadowShader.params.notVisibleColour = pViewShedData->notVisibleColour;
-    
+
     vcGLState_SetDepthStencilMode(vcGLSDM_Always, false);
     vcGLState_SetFaceMode(vcGLSFM_Solid, vcGLSCM_Back);
     vcGLState_SetBlendMode(vcGLSBM_Additive);
@@ -1203,8 +1239,37 @@ void vcRender_OpaquePass(vcState *pProgramState, vcRenderContext *pRenderContext
         vcSceneLayerRenderer_Render(pInstance->pSceneLayer, objectId, pInstance->worldMat, pProgramState->pActiveViewport->camera.matrices.viewProjection, pProgramState->pActiveViewport->camera.position, pRenderContext->sceneResolution);
     }
 
-    vcGLState_SetFaceMode(vcGLSFM_Solid, vcGLSCM_Back);
     vcSceneLayer_EndFrame();
+
+    srand(0);
+
+    submit pinrenderer
+    submit instanced lists
+    for (int y = 0; y < 40; ++y)
+    {
+      for (int c = 0; c < 1000; ++c)
+      {
+        udDouble4x4 world = udDouble4x4::translation((c / 100) * 3.0f, (c % 100) * 3.0f, y * 5.0f);
+
+        vcInstanceGeometryData data = {};
+        data.worldMatrix = udFloat4x4::create(world);;
+        data.worldViewProjectionMatrix = udFloat4x4::create(pProgramState->pActiveViewport->camera.matrices.viewProjection * world);
+        data.colour = udFloat4::create(float(rand()) / RAND_MAX, float(rand()) / RAND_MAX, float(rand()) / RAND_MAX, 1.0f);
+        data.objectInfo = udFloat4::create(0, 0, 0, 0);
+        renderData.instancedModels.PushData(pTestInstanceModel, &data);
+      }
+    }
+
+    // Instanced polygon models
+    {
+      for (size_t i = 0; i < renderData.instancedModels.GetBatchCount(); ++i)
+      {
+        const vcBatchedRenderQueue<vcInstanceGeometryData>::Batch *pBatch = renderData.instancedModels.GetBatch(i);
+        vcPolygonModel_RenderInstanced(pBatch->pModel, pBatch->count, pBatch->pData, sizeof(vcInstanceGeometryData));
+      }
+    }
+
+    vcGLState_SetFaceMode(vcGLSFM_Solid, vcGLSCM_Back);
 
     for (size_t i = 0; i < renderData.waterVolumes.length; ++i)
       vcWaterRenderer_Render(renderData.waterVolumes[i], pProgramState->pActiveViewport->camera.matrices.view, pProgramState->pActiveViewport->camera.matrices.viewProjection, pRenderContext->skyboxShaderPanorama.pSkyboxTexture, pProgramState->deltaTime);

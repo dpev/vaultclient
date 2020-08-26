@@ -164,6 +164,10 @@ bool vcShader_CreateFromText(vcShader **ppShader, const char *pVertexShader, con
       accumlatedOffset += 16;
       break;
 
+    //case vcVLT_InstanceId:
+    //  pVertexLayout[i] = { "COLOR", 1, DXGI_FORMAT_R32G32B32A32_FLOAT, 0, accumlatedOffset, D3D11_INPUT_PER_VERTEX_DATA, 0 };
+    //  accumlatedOffset += 16;
+    //  break;
     case vcVLT_Unsupported: // TODO: (EVC-641) Handle unsupported attributes interleaved with supported attributes
       continue; // NOTE continue
     case vcVLT_TotalTypes:
@@ -299,7 +303,7 @@ bool vcShader_BindConstantBuffer(vcShader *pShader, vcShaderConstantBuffer *pBuf
     if (g_pd3dDeviceContext->Map(pBuffer->buffers[i].pBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped_resource) != S_OK)
       return false;
 
-    if (mapped_resource.RowPitch == bufferSize)
+    if (mapped_resource.RowPitch >= bufferSize) // TODO before PR: confirm with works for partial-ubo uploading
       memcpy(mapped_resource.pData, pData, bufferSize);
 #if UD_DEBUG
     else
