@@ -2939,6 +2939,19 @@ void vcMain_ShowLoginWindow(vcState *pProgramState)
   {
     if (ImGui::Begin("loginTitle", nullptr, ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoSavedSettings))
     {
+      static bool loginSupportURLHovered = false;
+      ImGui::TextUnformatted("Trouble Logging in? Visit ");
+      ImGui::SameLine(0.0f, 0.0f);
+      ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[loginSupportURLHovered ? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive]);
+      ImGui::Text("%s", pProgramState->branding.loginSupportURL);
+      ImGui::PopStyleColor();
+      loginSupportURLHovered = ImGui::IsItemHovered();
+      if (loginSupportURLHovered)
+      {
+        if (ImGui::IsMouseClicked(0))
+          vcWebFile_OpenBrowser(pProgramState->branding.loginSupportURL);
+      }
+
       ImGui::TextUnformatted(vcString::Get(loginStatusKeys[pProgramState->loginStatus]));
 
       // Tool for support to get reasons for failures, requires Alt & Ctrl
