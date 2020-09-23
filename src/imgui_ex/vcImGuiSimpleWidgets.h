@@ -35,4 +35,6 @@ void vcIGSW_verticalSplitter(const char* label, const udFloat2& size, const int 
 
 void vcIGSW_Markdown(vcState *pProgramState, const char *pMarkdownText);
 
+void vcIGSW_URLText(const char *pPrefixText, const char *pURL, bool *pHoveredStatus);
+
 #endif // vcImGuiSimpleWidgets_h__

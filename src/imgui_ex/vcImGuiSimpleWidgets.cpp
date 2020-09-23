@@ -335,3 +335,20 @@ void vcIGSW_Markdown(vcState *pProgramState, const char *pMarkdownText)
 
   ImGui::Markdown(pMarkdownText, udStrlen(pMarkdownText), config);
 }
+
+void vcIGSW_URLText(const char *pPrefixText, const char *pURL, bool *pHoveredStatus)
+{
+  ImGui::TextUnformatted(pPrefixText);
+  ImGui::SameLine(0.0f, 0.0f);
+
+  ImGui::PushStyleColor(ImGuiCol_Text, ImGui::GetStyle().Colors[(pHoveredStatus != nullptr && *pHoveredStatus)? ImGuiCol_ButtonHovered : ImGuiCol_ButtonActive]);
+  ImGui::TextUnformatted(pURL);
+  ImGui::PopStyleColor();
+
+  if (pHoveredStatus != nullptr)
+  {
+    *pHoveredStatus = ImGui::IsItemHovered();
+    if (*pHoveredStatus && ImGui::IsMouseClicked(0))
+      vcWebFile_OpenBrowser(pURL);
+  }
+}
