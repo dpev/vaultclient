@@ -960,6 +960,9 @@ void vcMain_SetWindowName(vcState *pProgramState)
   }
 }
 
+#include "parsers/vcCSV.h"
+vcCSV *pCSV = nullptr;
+
 int main(int argc, char **args)
 {
 #if UDPLATFORM_WINDOWS
@@ -1147,6 +1150,10 @@ int main(int argc, char **args)
   vcProject_CreateBlankScene(&programState, "Empty Project", vcPSZ_StandardGeoJSON);
 
   udWorkerPool_AddTask(programState.pWorkerPool, vcMain_AsyncResumeSession, &programState, false);
+
+
+  //vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\adam-test.csv", nullptr);
+  vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
 
 #if UDPLATFORM_EMSCRIPTEN
   // Toggle fullscreen if it changed, most likely via pressing escape key
