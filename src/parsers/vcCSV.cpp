@@ -20,43 +20,36 @@ void vcCSV_Load(vcCSV **ppCSV, const char *pFilename)
 
   udResult error = udFile_Load(pFilename, &pMemory, &fileLen);
 
+  // UD_ERROR_CHECK(error etc.)
   uint64_t start = udPerfCounterStart();
 
   // '!' comment
-  const int count = 100;
-  pCSV->pEntries = udAllocType(float, count, udAF_Zero);
+  const int initialCount = 1000;
+  pCSV->pEntries = udAllocType(float, initialCount, udAF_Zero);
   pCSV->entryCount = 0;
-  pCSV->entryCapacity = count;
-  while (pMemory[0] != '\0' && fileLen > 0)
+  pCSV->entryCapacity = initialCount;
+
+  size_t index = -1;
+  while (pMemory[0] != '\0' && fileLen > 0 && udStrchr(pMemory, ",\r\n", &index) != nullptr)
   {
-    char *pTokens[count];
-    udStrTokenSplit(pMemory, ",\r\n", pTokens, count);
-
-    for (int i = 0; i < count; ++i)
+    if (pCSV->entryCount >= pCSV->entryCapacity)
     {
-      if (pCSV->entryCount >= pCSV->entryCapacity)
-      {
-        pCSV->entryCapacity *= 2;
-        pCSV->pEntries = udReallocType(pCSV->pEntries, float, pCSV->entryCapacity);
-      }
-      pCSV->pEntries[pCSV->entryCount] = udStrAtof(pMemory);
-      pCSV->entryCount++;
+      pCSV->entryCapacity *= 2;
+      pCSV->pEntries = udReallocType(pCSV->pEntries, float, pCSV->entryCapacity);
+    }
+    pCSV->pEntries[pCSV->entryCount] = udStrAtof(pMemory);
+    pCSV->entryCount++;
 
-      // relies on udStrTokenSplit() null terminating delimeters
-      int len = udStrlen(pMemory) + 1;
-      pMemory += len;
-      fileLen -= len;
-      if (fileLen <= 0)
-        break;
+    int len = index + 1;
+    pMemory += len;
+    fileLen -= len;
+    if (fileLen <= 0)
+      break;
 
-      //size_t index = -1;
-      //udStrchr(pMemory, ",", &index);
-      //pMemory += index;
-      while (pMemory[0] == '\r' || pMemory[0] == '\n' || pMemory[0] == '\0')
-      {
-        --fileLen;
-        pMemory++;
-      }
+    while (pMemory[0] == '\r' || pMemory[0] == '\n' || pMemory[0] == '\0')
+    {
+      --fileLen;
+      pMemory++;
     }
   }
 

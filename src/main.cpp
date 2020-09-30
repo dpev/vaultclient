@@ -1153,7 +1153,8 @@ int main(int argc, char **args)
 
 
   //vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\adam-test.csv", nullptr);
-  vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
+  //vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
+  vcCSV_Load(&pCSV, "C:\\Users\\PeterAdams\\Development\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
 
 #if UDPLATFORM_EMSCRIPTEN
   // Toggle fullscreen if it changed, most likely via pressing escape key
