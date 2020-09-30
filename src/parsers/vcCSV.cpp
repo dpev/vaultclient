@@ -13,44 +13,93 @@ struct AsyncCSVLoadInfo
 udResult vcCSV_Load(vcCSV *pCSV, const char *pFilename)
 {
   udResult result;
-  char *pMemory = nullptr;
+  //char *pMemory = nullptr;
   int64_t fileLen = 0;
   uint64_t start = udPerfCounterStart();
   const int initialCount = 1000;
-  size_t delimiterIndex = -1;
   float loadTimeMS = 0.0f;
+  udFile *pFile = nullptr;
+
+  const int maxChunkSizeBytes = 1024 * 2;
+  char chunkMemory[maxChunkSizeBytes] = {};
+  int bytesRemaining = 0; // from previous chunk
+
+    // here for debugging
+  const char *pCur = chunkMemory;
+  size_t delimiterIndex = -1;
+  size_t actualRead = -1;
 
   UD_ERROR_NULL(pCSV, udR_InvalidParameter_);
   UD_ERROR_NULL(pFilename, udR_InvalidParameter_);
 
-  UD_ERROR_CHECK(udFile_Load(pFilename, &pMemory, &fileLen));
+  UD_ERROR_CHECK(udFile_Open(&pFile, pFilename, udFOF_Read, &fileLen));
 
-  // TODO: '!' comment
   pCSV->pEntries = udAllocType(float, initialCount, udAF_Zero);
   pCSV->entryCount = 0;
   pCSV->entryCapacity = initialCount;
 
-  while (pMemory[0] != '\0' && fileLen > 0 && udStrchr(pMemory, ",\r\n", &delimiterIndex) != nullptr)
+  while (udFile_Read(pFile, chunkMemory + bytesRemaining, maxChunkSizeBytes - bytesRemaining, 0, udFSW_SeekCur, &actualRead) == udR_Success)
   {
-    if (pCSV->entryCount >= pCSV->entryCapacity)
-    {
-      pCSV->entryCapacity *= 2;
-      pCSV->pEntries = udReallocType(pCSV->pEntries, float, pCSV->entryCapacity);
-    }
-    pCSV->pEntries[pCSV->entryCount] = udStrAtof(pMemory);
-    pCSV->entryCount++;
+    pCur = chunkMemory; // temp
+    delimiterIndex = -1; // temp
 
-    int len = delimiterIndex + 1;
-    pMemory += len;
-    fileLen -= len;
-    if (fileLen <= 0)
+    int bytesRead = 0;
+
+    // TODO: '!' comment?
+    while (pCur[bytesRead] == '\r' || pCur[bytesRead] == '\n' || pCur[bytesRead] == '\0')
+      ++bytesRead;
+    pCur += bytesRead;
+    fileLen -= bytesRead;
+
+    if (fileLen == 14463)
+    {
+      printf("B\n");
+    }
+
+    while (udStrchr(pCur, ",\r\n", &delimiterIndex) != nullptr)
+    {
+      if (pCSV->entryCount >= pCSV->entryCapacity)
+      {
+        pCSV->entryCapacity *= 2;
+        pCSV->pEntries = udReallocType(pCSV->pEntries, float, pCSV->entryCapacity);
+      }
+      pCSV->pEntries[pCSV->entryCount] = udStrAtof(pCur);
+      pCSV->entryCount++;
+
+      int skipBytes = delimiterIndex + 1;
+      while (bytesRead + skipBytes <= actualRead && (pCur[skipBytes] == '\r' || pCur[skipBytes] == '\n' || pCur[skipBytes] == '\0'))
+        ++skipBytes;
+
+      pCur += skipBytes;
+      fileLen -= skipBytes;
+      bytesRead += skipBytes;
+
+      if (bytesRead >= actualRead)
+        break;
+
+      if (fileLen == 14463)
+      {
+        printf("A\n");
+      }
+    }
+
+    if (bytesRead == actualRead)
+    {
+      printf("yp\n");
+    }
+
+    bytesRemaining = (actualRead - bytesRead);
+    if (fileLen == bytesRemaining)
+    {
+      // read last entry
+      pCSV->pEntries[pCSV->entryCount] = udStrAtof(pCur);
+      pCSV->entryCount++;
       break;
-
-    while (pMemory[0] == '\r' || pMemory[0] == '\n' || pMemory[0] == '\0')
-    {
-      --fileLen;
-      pMemory++;
     }
+
+    // put remainder in front
+    memmove(chunkMemory, chunkMemory + bytesRead, bytesRemaining);
+    memset(chunkMemory + bytesRemaining, 0, actualRead - bytesRemaining);
   }
   loadTimeMS = udPerfCounterMilliseconds(start);
 

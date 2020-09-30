@@ -520,30 +520,6 @@ void vcMain_MainLoop(vcState *pProgramState)
           vcModals_CloseModal(pProgramState, vcMT_Welcome);
           vcSHP_Load(pProgramState, pNextLoad);
         }
-        else if (udStrEquali(pExt, ".csv"))
-        {
-          vcModals_CloseModal(pProgramState, vcMT_Welcome);
-
-          if (vcCSV_Load(&pProgramState->pCSV, loadFile, pProgramState->pWorkerPool) == udR_Success)
-          {
-            vcModals_OpenModal(pProgramState, vcMT_ImportAnnotations);
-          }
-          else
-          {
-            vcState::ErrorItem projectError;
-            projectError.source = vcES_ProjectChange;
-            projectError.pData = pNextLoad; // this takes ownership so we don't need to dup or free
-            projectError.resultCode = udR_ReadFailure;
-
-            pNextLoad = nullptr;
-
-            pProgramState->errorItems.PushBack(projectError);
-
-            vcModals_OpenModal(pProgramState, vcMT_ProjectChange);
-
-            continue;
-          }
-        }
 #if VC_HASCONVERT
         else if (convertDrop) // Everything else depends on where it was dropped
         {
@@ -711,6 +687,31 @@ void vcMain_MainLoop(vcState *pProgramState)
             {
               udStrcpy(pProgramState->sceneExplorer.movetoUUIDWhenPossible, pNode->UUID);
               vcModals_CloseModal(pProgramState, vcMT_Welcome);
+            }
+          }
+          else if (udStrEquali(pExt, ".csv"))
+          {
+            vcModals_CloseModal(pProgramState, vcMT_Welcome);
+          
+            //pProgramState->pWorkerPool
+            if (vcCSV_Load(&pProgramState->pCSV, loadFile, nullptr) == udR_Success)
+            {
+              vcModals_OpenModal(pProgramState, vcMT_ImportAnnotations);
+            }
+            else
+            {
+              vcState::ErrorItem projectError;
+              projectError.source = vcES_ProjectChange;
+              projectError.pData = pNextLoad; // this takes ownership so we don't need to dup or free
+              projectError.resultCode = udR_ReadFailure;
+            
+              pNextLoad = nullptr;
+            
+              pProgramState->errorItems.PushBack(projectError);
+            
+              vcModals_OpenModal(pProgramState, vcMT_ProjectChange);
+            
+              continue;
             }
           }
           else // This file isn't supported in the scene
