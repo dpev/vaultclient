@@ -6,31 +6,31 @@
 
 struct AsyncCSVLoadInfo
 {
-  udResult loadResult;
-  vcCSV **ppCSV;
-
+  vcCSV *pCSV;
   const char* pFilename;
 };
 
-void vcCSV_Load(vcCSV **ppCSV, const char *pFilename)
+udResult vcCSV_Load(vcCSV *pCSV, const char *pFilename)
 {
-  vcCSV *pCSV = udAllocType(vcCSV, 1, udAF_Zero);
-  char* pMemory = nullptr;
+  udResult result;
+  char *pMemory = nullptr;
   int64_t fileLen = 0;
-
-  udResult error = udFile_Load(pFilename, &pMemory, &fileLen);
-
-  // UD_ERROR_CHECK(error etc.)
   uint64_t start = udPerfCounterStart();
-
-  // '!' comment
   const int initialCount = 1000;
+  size_t delimiterIndex = -1;
+  float loadTimeMS = 0.0f;
+
+  UD_ERROR_NULL(pCSV, udR_InvalidParameter_);
+  UD_ERROR_NULL(pFilename, udR_InvalidParameter_);
+
+  UD_ERROR_CHECK(udFile_Load(pFilename, &pMemory, &fileLen));
+
+  // TODO: '!' comment
   pCSV->pEntries = udAllocType(float, initialCount, udAF_Zero);
   pCSV->entryCount = 0;
   pCSV->entryCapacity = initialCount;
 
-  size_t index = -1;
-  while (pMemory[0] != '\0' && fileLen > 0 && udStrchr(pMemory, ",\r\n", &index) != nullptr)
+  while (pMemory[0] != '\0' && fileLen > 0 && udStrchr(pMemory, ",\r\n", &delimiterIndex) != nullptr)
   {
     if (pCSV->entryCount >= pCSV->entryCapacity)
     {
@@ -40,7 +40,7 @@ void vcCSV_Load(vcCSV **ppCSV, const char *pFilename)
     pCSV->pEntries[pCSV->entryCount] = udStrAtof(pMemory);
     pCSV->entryCount++;
 
-    int len = index + 1;
+    int len = delimiterIndex + 1;
     pMemory += len;
     fileLen -= len;
     if (fileLen <= 0)
@@ -52,11 +52,15 @@ void vcCSV_Load(vcCSV **ppCSV, const char *pFilename)
       pMemory++;
     }
   }
+  loadTimeMS = udPerfCounterMilliseconds(start);
 
-  float timeMS = udPerfCounterMilliseconds(start);
+  result = udR_Success;
+epilogue:
 
-  pCSV->readResult = udR_Success;
-  *ppCSV = pCSV;
+  if (pCSV)
+    pCSV->readResult = result;
+
+  return result;
 }
 
 void vcCSV_AsyncLoadWorkerThreadWork(void* pLoadInfo)
@@ -64,15 +68,9 @@ void vcCSV_AsyncLoadWorkerThreadWork(void* pLoadInfo)
   udResult result;
   AsyncCSVLoadInfo* pCSVLoadInfo = (AsyncCSVLoadInfo*)pLoadInfo;
 
-  vcCSV_Load(pCSVLoadInfo->ppCSV, pCSVLoadInfo->pFilename);
-
-  //UD_ERROR_CHECK(udFile_Load(udTempStr("%s%s", pLoadInfo->pVertexFilename, pVertexFileExtension), &pLoadInfo->pVertexShaderText));
-  //UD_ERROR_CHECK(udFile_Load(udTempStr("%s%s", pLoadInfo->pFragmentFilename, pFragmentFileExtension), &pLoadInfo->pFragmentShaderText));
-
-  result = udR_Success;
+  result = vcCSV_Load(pCSVLoadInfo->pCSV, pCSVLoadInfo->pFilename);
 epilogue:
 
-  pCSVLoadInfo->loadResult = result;
   udFree(pCSVLoadInfo->pFilename);
 }
 
@@ -80,16 +78,22 @@ udResult vcCSV_Load(vcCSV **ppCSV, const char *pFilename, udWorkerPool *pWorkerP
 {
   udResult result;
   AsyncCSVLoadInfo* pLoadInfo = nullptr;
+  vcCSV *pCSV = nullptr;
 
   UD_ERROR_NULL(ppCSV, udR_InvalidParameter_);
   UD_ERROR_NULL(pFilename, udR_InvalidParameter_);
+
+  pCSV = udAllocType(vcCSV, 1, udAF_Zero);
+  UD_ERROR_NULL(pCSV, udR_MemoryAllocationFailure);
+
+  pCSV->readResult = udR_Pending;
 
   if (pWorkerPool != nullptr)
   {
     pLoadInfo = udAllocType(AsyncCSVLoadInfo, 1, udAF_Zero);
     UD_ERROR_NULL(pLoadInfo, udR_MemoryAllocationFailure);
 
-    pLoadInfo->ppCSV = ppCSV;
+    pLoadInfo->pCSV = pCSV;
     pLoadInfo->pFilename = udStrdup(pFilename);
 
     UD_ERROR_CHECK(udWorkerPool_AddTask(pWorkerPool, vcCSV_AsyncLoadWorkerThreadWork, pLoadInfo, true));
@@ -97,14 +101,18 @@ udResult vcCSV_Load(vcCSV **ppCSV, const char *pFilename, udWorkerPool *pWorkerP
   }
   else
   {
-    // synchronously load now
-    vcCSV_Load(ppCSV, pFilename);
+    // synchronous
+    UD_ERROR_CHECK(vcCSV_Load(pCSV, pFilename));
   }
 
   result = udR_Success;
-  *ppCSV = nullptr;
+  *ppCSV = pCSV;
+  pCSV = nullptr;
 epilogue:
 
+  if (pCSV != nullptr)
+    pCSV->readResult = result;
+  
   return result;
 }
 

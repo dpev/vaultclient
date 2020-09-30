@@ -57,6 +57,7 @@
 
 #include "parsers/vcUDP.h"
 #include "parsers/vc12DXML.h"
+#include "parsers/vcCSV.h"
 
 #include "udFile.h"
 #include "udStringUtil.h"
@@ -519,6 +520,30 @@ void vcMain_MainLoop(vcState *pProgramState)
           vcModals_CloseModal(pProgramState, vcMT_Welcome);
           vcSHP_Load(pProgramState, pNextLoad);
         }
+        else if (udStrEquali(pExt, ".csv"))
+        {
+          vcModals_CloseModal(pProgramState, vcMT_Welcome);
+
+          if (vcCSV_Load(&pProgramState->pCSV, loadFile, pProgramState->pWorkerPool) == udR_Success)
+          {
+            vcModals_OpenModal(pProgramState, vcMT_ImportAnnotations);
+          }
+          else
+          {
+            vcState::ErrorItem projectError;
+            projectError.source = vcES_ProjectChange;
+            projectError.pData = pNextLoad; // this takes ownership so we don't need to dup or free
+            projectError.resultCode = udR_ReadFailure;
+
+            pNextLoad = nullptr;
+
+            pProgramState->errorItems.PushBack(projectError);
+
+            vcModals_OpenModal(pProgramState, vcMT_ProjectChange);
+
+            continue;
+          }
+        }
 #if VC_HASCONVERT
         else if (convertDrop) // Everything else depends on where it was dropped
         {
@@ -961,7 +986,6 @@ void vcMain_SetWindowName(vcState *pProgramState)
 }
 
 #include "parsers/vcCSV.h"
-vcCSV *pCSV = nullptr;
 
 int main(int argc, char **args)
 {
@@ -1150,11 +1174,6 @@ int main(int argc, char **args)
   vcProject_CreateBlankScene(&programState, "Empty Project", vcPSZ_StandardGeoJSON);
 
   udWorkerPool_AddTask(programState.pWorkerPool, vcMain_AsyncResumeSession, &programState, false);
-
-
-  //vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\adam-test.csv", nullptr);
-  //vcCSV_Load(&pCSV, "D:\\Vault\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
-  vcCSV_Load(&pCSV, "C:\\Users\\PeterAdams\\Development\\Datasets\\CSV\\POINT CLOUD.csv", nullptr);
 
 #if UDPLATFORM_EMSCRIPTEN
   // Toggle fullscreen if it changed, most likely via pressing escape key

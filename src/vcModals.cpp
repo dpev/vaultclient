@@ -1843,6 +1843,188 @@ void vcModals_DrawFlythroughExport(vcState *pProgramState)
   }
 }
 
+#include "parsers/vcCSV.h"
+
+void vcModals_DrawImportAnnotations(vcState *pProgramState)
+{
+  if (pProgramState->openModals & (1 << vcMT_ImportAnnotations))
+  {
+    ImGui::OpenPopup("###modalImportAnnotations");
+    ImGui::SetNextWindowSize(ImVec2(215, 70), ImGuiCond_FirstUseEver);
+  }
+
+  if (ImGui::BeginPopupModal("###modalImportAnnotations", nullptr, ImGuiWindowFlags_NoTitleBar))
+  {
+    if (pProgramState->closeModals & (1 << vcMT_ImportAnnotations))
+      ImGui::CloseCurrentPopup();
+    else
+      pProgramState->modalOpen = true;
+   
+    ImGui::TextUnformatted(udResultAsString(pProgramState->pCSV->readResult));
+
+    ImGui::TextUnformatted(udTempStr("Loaded: %d", pProgramState->pCSV->entryCount));
+
+    /*
+    //--- show first row with file picker an buttons
+    ImGui::Columns(2, NULL, false);
+    ImGui::SetColumnWidth(0, ImGui::GetWindowSize().x - 225.f);
+
+    vcIGSW_FilePicker(pProgramState, vcString::Get("exFileName"), context.importPath, SupportedFileTypes_AnnotationsImport, vcFDT_OpenFile, [&] {
+      loadCsvIntoTable(pProgramState);
+      });
+
+    ImGui::NextColumn();
+
+    bool enableImport = importCheck(pProgramState);
+    if (exIGSW_Button(vcString::Get("exAnnotationsIOImport"), ImVec2(100.f, 0), enableImport))
+    {
+      importAnnotations(pProgramState);
+      status = exAIOUIS_Finished;
+    }
+
+    ImGui::SameLine();
+    if (ImGui::Button(vcString::Get("exAnnotationsIOCancel"), ImVec2(100.f, 0)) || vcHotkey::IsPressed(vcB_Cancel))
+    {
+      status = exAIOUIS_Canceled;
+    }
+
+    ImGui::EndColumns();
+    ImGui::Separator();
+
+
+    //--- show import parameters
+    ImGui::NewLine();
+    if (ImGui::InputInt(vcString::Get("exAnnotationsIOSkipLines"), &context.importSkipLines))
+    {
+      context.importSkipLines = udMax(0, context.importSkipLines);
+    }
+
+    const char *separators[] = { vcString::Get("exAnnotationsIOSeparatorComma"), vcString::Get("exAnnotationsIOSeparatorTab"),
+        vcString::Get("exAnnotationsIOSeparatorSpace"), vcString::Get("exAnnotationsIOSeparatorSemicolon") };
+    if (ImGui::Combo(vcString::Get("exAnnotationsIOSeparator"), (int *)&context.importSeparator, separators, (int)udLengthOf(separators)))
+    {
+      loadCsvIntoTable(pProgramState);
+    }
+
+    ImGui::InputInt(vcString::Get("exAnnotationsIOZoneSRID"), &context.importZoneCustomSRID);
+    udGeoZone zone;
+    if ((context.importZoneCustomSRID == 0) || (udGeoZone_SetFromSRID(&zone, context.importZoneCustomSRID) != udR_Success))
+    {
+      // use project base zone => no conversion
+      context.importZone = pProgramState->geozone;
+    }
+    else
+    {
+      // use specified zone
+      context.importZone = zone;
+    }
+
+    const char *strings[] = {
+        context.importZone.zoneName,
+        vcString::Get("exSceneSRID"),
+        udTempStr("%d", context.importZone.srid) };
+    const char *pBuffer = vcStringFormat(vcString::Get("exAnnotationsIOZoneMessage"), strings, udLengthOf(strings));
+    ImGui::Text("%s", pBuffer);
+    udFree(pBuffer);
+
+
+    //--- show table with file contents
+    ImGui::NewLine();
+    int numCols = context.importTable.numColumns;
+    int numRows = context.importTable.numRows;
+    if ((numCols <= 0) || (numRows <= 0))
+    {
+      ImGui::Separator();
+      ImGui::TextUnformatted(vcString::Get("exAnnotationsIONoDataLoaded"));
+      return status;
+    }
+
+
+    // show table header
+    const char *columns[] = {
+        vcString::Get("exAnnotationsIOColumnName"),
+        vcString::Get("exAnnotationsIOColumnX"),
+        vcString::Get("exAnnotationsIOColumnY"),
+        vcString::Get("exAnnotationsIOColumnZ"),
+        vcString::Get("exAnnotationsIOColumnID"),
+        vcString::Get("exAnnotationsIOColumnParentID"),
+        vcString::Get("exAnnotationsIOColumnSkip"),
+    };
+
+    ImGui::BeginChild("ChildHeader", ImVec2(0, 30), false, 0);
+    ImGui::Separator();
+    ImGui::Columns(numCols);
+    for (int i = 0; i < numCols; i++)
+    {
+      ImGui::PushID(i);
+
+      ImGui::Combo("###ColumnContents", (int *)&context.importTable.columnContents[i],
+        columns, (int)udLengthOf(columns));
+
+      ImGui::PopID();
+      ImGui::NextColumn();
+    }
+
+
+    // store column widths
+    context.importTable.columnWidth.Clear();
+    for (int j = 0; j < numCols; j++)
+    {
+      context.importTable.columnWidth.PushBack(ImGui::GetColumnWidth(j));
+    }
+    ImGui::Columns(1);
+    ImGui::EndChild();
+
+    // show table contents
+    ImGui::BeginChild("ChildTable", ImVec2(0, 0), false, ImGuiWindowFlags_HorizontalScrollbar);
+    ImGui::Separator();
+    ImGui::Columns(numCols);
+
+    ImGuiListClipper clipper(numRows);
+    while (clipper.Step())
+    {
+      for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+      {
+        for (int j = 0; j < numCols; j++)
+        {
+          ImGui::PushID((i + 1) * numCols + j);
+
+          const char *pText = context.importTable.cells[i * numCols + j];
+          if (pText == nullptr)
+          {
+            ImGui::TextUnformatted("");
+          }
+          else
+          {
+            ImGui::TextUnformatted(pText);
+          }
+
+          ImGui::PopID();
+          ImGui::NextColumn();
+        }
+      }
+    }
+
+
+    // adjust column width to that of stored header value
+    for (int i = 0; i < numCols; i++)
+    {
+      float width = context.importTable.columnWidth[i];
+      if (ImGui::GetColumnWidth(i) != width)
+      {
+        ImGui::SetColumnWidth(i, width);
+      }
+    }
+
+
+    ImGui::Columns(1);
+    ImGui::EndChild();
+*/
+
+    ImGui::EndPopup();
+  }
+}
+
 void vcModals_OpenModal(vcState *pProgramState, vcModalTypes type)
 {
   pProgramState->openModals |= (1 << type);
@@ -1878,6 +2060,7 @@ void vcModals_DrawModals(vcState *pProgramState)
   vcModals_DrawChangePassword(pProgramState);
   vcModals_DrawConvert(pProgramState);
   vcModals_DrawFlythroughExport(pProgramState);
+  vcModals_DrawImportAnnotations(pProgramState);
 
   if (gShowInputControlsNextHack && !pProgramState->modalOpen && pProgramState->hasUsedMouse)
   {

@@ -128,8 +128,12 @@ struct vcViewport
   udJSON udModelNodeAttributes;
 };
 
+struct vcCSV; // temp
+
 struct vcState
 {
+  vcCSV *pCSV; // temp
+
   bool programComplete;
   SDL_Window *pWindow;
   vcFramebuffer *pDefaultFramebuffer;
