@@ -133,6 +133,7 @@ TEST(vcTiff, LoadTiffFromMemory)
   _TIFFfree(raster);
   TIFFClose(pTif);
   vcTiffHandler_DestroyMemoryStream(&pStream);
+  udFree(pData);
 }
 
 TEST(vcTiff, LoadTiffFile)
